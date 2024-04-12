@@ -1,71 +1,63 @@
 package main
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
 
-	"github.com/gocolly/colly"
+	"github.com/PuerkitoBio/goquery"
 )
 
 // initializing a data structure to keep the scraped data
-type PokemonProduct struct {
-	url, image, name, price string
+type Article struct {
+	Title, Url, Lang string
 }
 
 func main() {
-	// initializing the slice of structs to store the data to scrape
-	var pokemonProducts []PokemonProduct
+	res, err := http.Get("https://blog.saugi.me/")
+	if err != nil {
+		fmt.Println(err)
+		log.Fatal(err)
+	} else {
+		fmt.Println("Berhasil!")
+	}
+	defer res.Body.Close()
 
-	// creating a new Colly instance
-	c := colly.NewCollector()
-
-	// visiting the target page
-	c.Visit("https://scrapeme.live/shop/")
-
-	// scraping logic
-	c.OnHTML("li.product", func(e *colly.HTMLElement) {
-		pokemonProduct := PokemonProduct{}
-
-		pokemonProduct.url = e.ChildAttr("a", "href")
-		pokemonProduct.image = e.ChildAttr("img", "src")
-		pokemonProduct.name = e.ChildText("h2")
-		pokemonProduct.price = e.ChildText(".price")
-
-		pokemonProducts = append(pokemonProducts, pokemonProduct)
+	if res.StatusCode != 200 {
+		fmt.Printf("Status code error : %d %s", res.StatusCode, res.Status)
+		log.Fatalf("Status code error : %d %s", res.StatusCode, res.Status)
+	}
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		log.Fatal(err)
+	}
+	file, err := os.Create("lists.csv")
+	if err != nil {
+		log.Fatalln("Failed making csv : ", err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	writer.Write([]string{"Judul", "Lang", "Url"})
+	rows := make([]Article, 0)
+	doc.Find(".card").Children().Each(func(i int, sel *goquery.Selection) {
+		row := new(Article)
+		row.Title = sel.Find(".card-title-sm").Text()
+		row.Url, _ = sel.Find(".card-title-sm span a").Attr("href")
+		row.Lang = sel.Find(".lang").Text()
+		rows = append(rows, *row)
+		writer.Write([]string{row.Title, row.Lang, row.Url})
 	})
-	//tak print isine kok ora enek, sesuai tutorial padahal
-	fmt.Println(pokemonProducts)
+	defer writer.Flush()
+	bts, err := json.MarshalIndent(rows, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		log.Fatal(err)
+	}
+	log.Println(string(bts))
+	fmt.Println(string(bts))
 
-	// // opening the CSV file
-	// file, err := os.Create("products.csv")
-	// if err != nil {
-	// 	log.Fatalln("Failed to create output CSV file", err)
-	// }
-	// defer file.Close()
-
-	// // initializing a file writer
-	// writer := csv.NewWriter(file)
-
-	// // writing the CSV headers
-	// headers := []string{
-	// 	"url",
-	// 	"image",
-	// 	"name",
-	// 	"price",
-	// }
-	// writer.Write(headers)
-
-	// // writing each Pokemon product as a CSV row
-	// for _, pokemonProduct := range pokemonProducts {
-	// 	// converting a PokemonProduct to an array of strings
-	// 	record := []string{
-	// 		pokemonProduct.url,
-	// 		pokemonProduct.image,
-	// 		pokemonProduct.name,
-	// 		pokemonProduct.price,
-	// 	}
-
-	// 	// adding a CSV record to the output file
-	// 	writer.Write(record)
-	// }
-	// defer writer.Flush()
 }
