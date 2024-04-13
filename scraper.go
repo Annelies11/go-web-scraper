@@ -56,21 +56,25 @@ func main() {
 	//rows := make([]Article, 0)
 	rows := make([]URL, 0)
 
-	maxScrap := 10
+	maxScrap := 20
+	j := 1
 	//Viewweb__StyledView-sc-b0snvl-0 bASEUm
 
 	doc.Find(".Viewweb__StyledView-sc-b0snvl-0.emkTMh").Children().Each(func(i int, sel *goquery.Selection) {
 		time.Sleep(1 * time.Second)
-		if i > maxScrap-1 {
+		if j > maxScrap {
 			return
 		}
 		row := new(URL)
-		row.ID = i + 1
+		row.ID = j
 		//Viewweb__StyledView-sc-b0snvl-0 BXiYe
 		row.Url, _ = sel.Find(".Viewweb__StyledView-sc-b0snvl-0.BXiYe a").Attr("href")
 		row.Category = sel.Find(".TextBoxweb__StyledTextBox-sc-1noultz-0 span").Text()
 		rows = append(rows, *row)
-		writer.Write([]string{strconv.Itoa(row.ID), "https://kumparan.com" + row.Url, row.Category})
+		if row.Url != "" {
+			writer.Write([]string{strconv.Itoa(row.ID), "https://kumparan.com" + row.Url, row.Category})
+			j++
+		}
 
 	})
 	defer writer.Flush()
